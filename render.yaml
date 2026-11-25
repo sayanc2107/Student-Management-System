@@ -19,7 +19,7 @@ services:
       - key: DATABASE_NAME
         value: tuition_db
       - key: MONGODB_URI
-        sync: false # Set securely in the Render dashboard: mongodb+srv://<user>:<password>@<cluster>.mongodb.net/tuition_db?retryWrites=true&w=majority
+        sync: false # Set in the Render dashboard: mongodb+srv://sayan2008c_db_user:<db_password>@cluster0.njngnoe.mongodb.net/tuition_db?retryWrites=true&w=majority
       - key: JWT_SECRET_KEY
         generateValue: true # Render automatically generates a cryptographically secure random string
       - key: JWT_ALGORITHM
