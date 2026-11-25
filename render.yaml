@@ -1,0 +1,46 @@
+# ==============================================================================
+# Render Blueprint Specification for T5 ERP SYSTEM
+# Documentation: https://render.com/docs/blueprint-spec
+# ==============================================================================
+
+services:
+  - type: web
+    name: t5-erp-system
+    runtime: python
+    plan: free
+    region: oregon # or singapore, frankfurt, ohio
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_NAME
+        value: tuition_db
+      - key: MONGODB_URI
+        sync: false # Set securely in the Render dashboard: mongodb+srv://<user>:<password>@<cluster>.mongodb.net/tuition_db?retryWrites=true&w=majority
+      - key: JWT_SECRET_KEY
+        generateValue: true # Render automatically generates a cryptographically secure random string
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+      - key: ENABLE_DEMO_SEED
+        value: "false"
+      - key: TIMEZONE
+        value: Asia/Kolkata
+      - key: CURRENCY_SYMBOL
+        value: "₹"
+      - key: CURRENCY_CODE
+        value: INR
+      - key: TEACHER_NAME
+        value: Sayan
+      - key: TEACHER_EMAIL
+        value: sayan@t5erp.com
+      - key: TEACHER_PHONE
+        value: "+91 98765 43210"
+      - key: TEACHER_UPI_ID
+        value: sayan2008c@pthdfc
+      - key: TEACHER_UPI_NAME
+        value: Sayan

@@ -92,8 +92,8 @@ async def lifespan(app: FastAPI):
     await db_manager.connect()
     db = get_database()
 
-    # Seed demo data if enabled
-    if settings.ENABLE_DEMO_SEED:
+    # Seed demo data only if explicitly enabled AND not in production
+    if settings.ENABLE_DEMO_SEED and settings.APP_ENV != "production":
         await seed_demo_data_if_empty(db)
 
     # Run safe schema and config migrations
@@ -123,6 +123,7 @@ app.add_middleware(
 
 # Mount static and templates
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(BASE_DIR)
 static_dir = os.path.join(BASE_DIR, "static")
 templates_dir = os.path.join(BASE_DIR, "templates")
 
@@ -133,7 +134,9 @@ os.makedirs(os.path.join(static_dir, "uploads", "submissions"), exist_ok=True)
 os.makedirs(templates_dir, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
-templates = Jinja2Templates(directory=templates_dir)
+# Search for templates in app/templates as well as root workspace
+template_search_dirs = [d for d in [templates_dir, root_dir] if os.path.isdir(d)]
+templates = Jinja2Templates(directory=template_search_dirs)
 
 # Include Routers
 app.include_router(auth.router)
@@ -162,10 +165,23 @@ async def serve_home(request: Request):
 
 @app.get("/health")
 async def health_check():
+    db_engine = "MongoDB Atlas" if db_manager.is_atlas else "Local/Memory Fallback"
+    db_ok = False
+    if db_manager.is_atlas and db_manager.client:
+        try:
+            await db_manager.client.admin.command('ping')
+            db_ok = True
+        except Exception:
+            db_ok = False
+    else:
+        db_ok = True
+
     return {
-        "status": "online",
-        "databaseEngine": "MongoDB Atlas" if db_manager.is_atlas else "Local/Memory Fallback",
-        "connectionStatus": db_manager.connection_status,
+        "status": "online" if db_ok else "degraded",
+        "databaseEngine": db_engine,
+        "databaseConnected": db_ok,
+        "connectionStatus": "connected" if db_ok else "disconnected",
+        "environment": settings.APP_ENV,
         "timezone": settings.TIMEZONE,
         "currency": settings.CURRENCY_SYMBOL
     }

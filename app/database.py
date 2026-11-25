@@ -206,6 +206,44 @@ class MemoryCollection:
         res.modified_count = modified_count
         return res
 
+    async def update_many(self, query: Dict[str, Any], update: Dict[str, Any], upsert: bool = False):
+        target_ids = [k for k, d in self.docs.items() if self._matches(d, query)]
+        matched_count = len(target_ids)
+        modified_count = 0
+        for tid in target_ids:
+            doc = self.docs[tid]
+            if "$set" in update:
+                doc.update(copy.deepcopy(update["$set"]))
+                modified_count += 1
+            if "$addToSet" in update:
+                for k, v in update["$addToSet"].items():
+                    if k not in doc or not isinstance(doc[k], list):
+                        doc[k] = []
+                    if v not in doc[k]:
+                        doc[k].append(v)
+                modified_count += 1
+            if "$inc" in update:
+                for k, v in update["$inc"].items():
+                    doc[k] = doc.get(k, 0) + v
+                modified_count += 1
+            if "$unset" in update:
+                for k in update["$unset"]:
+                    doc.pop(k, None)
+                modified_count += 1
+        if matched_count == 0 and upsert:
+            new_doc = copy.deepcopy(query)
+            if "$set" in update:
+                new_doc.update(copy.deepcopy(update["$set"]))
+            await self.insert_one(new_doc)
+            modified_count = 1
+
+        class Result:
+            pass
+        res = Result()
+        res.matched_count = matched_count
+        res.modified_count = modified_count
+        return res
+
     async def delete_one(self, query: Dict[str, Any]):
         target_id = None
         for _id, d in self.docs.items():
@@ -262,6 +300,14 @@ class MemoryDatabase:
         return self[item]
 
 
+def mask_mongodb_uri(uri: str) -> str:
+    """Safely mask username and password credentials from MongoDB URI for logging"""
+    if not uri:
+        return ""
+    import re
+    # Mask credentials between // and @
+    return re.sub(r'://([^:]+):([^@]+)@', '://***:***@', uri)
+
 class DatabaseManager:
     """MongoDB Atlas Database Connection Manager with seamless fallback"""
     def __init__(self):
@@ -274,33 +320,40 @@ class DatabaseManager:
         uri = settings.MONGODB_URI
         # If user has configured a mongodb or mongodb+srv URI
         if uri and ("mongodb://" in uri or "mongodb+srv://" in uri):
+            masked = mask_mongodb_uri(uri)
             try:
-                logger.info(f"Connecting to MongoDB at: {uri.split('@')[-1] if '@' in uri else uri}")
-                # Motor client with 3-second timeout for quick fallback if offline
+                logger.info(f"Connecting to MongoDB Atlas at: {masked}")
+                # Motor client with 5-second timeout for Atlas verification
                 motor_client = motor.motor_asyncio.AsyncIOMotorClient(
                     uri,
-                    serverSelectionTimeoutMS=3000,
-                    connectTimeoutMS=3000
+                    serverSelectionTimeoutMS=5000,
+                    connectTimeoutMS=5000
                 )
                 # Test connection with ping command
                 await motor_client.admin.command('ping')
                 self.client = motor_client
                 self.db = self.client[settings.DATABASE_NAME]
                 self.is_atlas = True
-                self.connection_status = "connected_atlas"
+                self.connection_status = "connected"
                 logger.info(f"Successfully connected to MongoDB Atlas database '{settings.DATABASE_NAME}'!")
                 await self.create_indexes()
                 return
             except Exception as e:
-                logger.warning(f"Could not connect to live MongoDB Atlas: {e}. Activating robust local in-memory fallback engine.")
-                self.connection_status = f"offline_fallback: {e}"
+                # Do not log or expose raw exception containing unescaped credentials
+                self.connection_status = "atlas_connection_error"
+                logger.warning(
+                    "Could not connect to MongoDB Atlas cluster. Please check MONGODB_URI and Atlas Network Access (IP Whitelist). "
+                    "Activating in-memory fallback engine."
+                )
+                if settings.APP_ENV == "production":
+                    logger.error("WARNING: Running in production environment without a verified MongoDB Atlas connection!")
         else:
             logger.info("No MongoDB Atlas URI provided. Using robust local storage engine.")
 
         # Fallback to high-performance local memory database
         self.db = MemoryDatabase(settings.DATABASE_NAME)
         self.is_atlas = False
-        if not self.connection_status.startswith("offline_fallback"):
+        if not self.connection_status.startswith("atlas_connection_error"):
             self.connection_status = "local_memory"
 
     async def disconnect(self):
@@ -310,17 +363,19 @@ class DatabaseManager:
             logger.info("MongoDB client disconnected.")
 
     async def create_indexes(self):
-        """Setup MongoDB indexes for commonly queried fields as specified"""
+        """Setup MongoDB indexes for commonly queried fields safely and idempotently"""
         if not self.db:
             return
         try:
             # Users indexes
             await self.db.users.create_index("email", unique=True)
+            await self.db.users.create_index("username")
             await self.db.users.create_index("studentId")
 
             # Students indexes
             await self.db.students.create_index("userId")
             await self.db.students.create_index("email")
+            await self.db.students.create_index("username")
             await self.db.students.create_index("enrollmentStatus")
             await self.db.students.create_index("name")
 
@@ -328,10 +383,16 @@ class DatabaseManager:
             await self.db.classes.create_index("date")
             await self.db.classes.create_index("subject")
             await self.db.classes.create_index("assignedStudentIds")
+            await self.db.classes.create_index("mode")
 
             # Attendance indexes (compound unique index for classId + studentId)
             await self.db.attendance.create_index([("classId", 1), ("studentId", 1)], unique=True)
             await self.db.attendance.create_index("studentId")
+
+            # Class feedback indexes
+            await self.db.class_feedback.create_index("classId")
+            await self.db.class_feedback.create_index("studentId")
+            await self.db.class_feedback.create_index("createdAt")
 
             # Homework indexes (due date index for homework due soon / overdue)
             await self.db.homework.create_index("dueDate")
@@ -356,6 +417,9 @@ class DatabaseManager:
             # Exams indexes
             await self.db.exams.create_index("date")
             await self.db.exams.create_index("subject")
+
+            # Settings indexes
+            await self.db.settings.create_index("type", unique=True)
 
             logger.info("MongoDB Atlas indexes verified/created successfully.")
         except Exception as e:

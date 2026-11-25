@@ -2,9 +2,11 @@ import asyncio
 import io
 import sys
 from fastapi.testclient import TestClient
+from app.config import settings
 from app.main import app
 
 def run_tests():
+    settings.ENABLE_DEMO_SEED = True
     print("=================================================================")
     print("RUNNING COMPREHENSIVE T5 ERP SYSTEM VERIFICATION")
     print("=================================================================")

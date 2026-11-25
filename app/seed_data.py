@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from app.auth import get_password_hash
@@ -6,14 +7,13 @@ from app.config import settings
 
 logger = logging.getLogger("student_management.seed")
 
-async def seed_demo_data_if_empty(db):
-    """Seed comprehensive realistic demo data if users collection is empty or only teacher exists"""
-    user_count = await db.users.count_documents()
-    if user_count > 1:
-        logger.info("Database already seeded with demo data.")
-        return
-
-    logger.info("Initializing rich demo dataset for independent tuition management...")
+async def seed_demo_data(db):
+    """
+    Idempotent, safe demo-data seed command.
+    Inserts or updates a small set of clearly labeled, fictional demo records.
+    Running this operation multiple times will NOT create duplicate demo records.
+    """
+    logger.info("Starting idempotent seed of fictional demo data...")
     now = datetime.now(timezone.utc)
     today_str = now.strftime("%Y-%m-%d")
     yesterday_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -21,39 +21,48 @@ async def seed_demo_data_if_empty(db):
     in_three_days_str = (now + timedelta(days=3)).strftime("%Y-%m-%d")
     in_seven_days_str = (now + timedelta(days=7)).strftime("%Y-%m-%d")
 
-    # 1. Teacher Account
+    # 1. Demo Teacher Accounts (fictional credentials, bcrypt hashed)
     teacher_pw = get_password_hash("Teacher@123")
-    teacher_user = {
-        "_id": ObjectId(),
+    demo_teacher = {
         "name": settings.TEACHER_NAME,
-        "email": "teacher@tuition.com",
+        "email": "teacher@example.com",
         "username": "teacher",
         "passwordHash": teacher_pw,
         "role": "teacher",
         "studentId": None,
-        "createdAt": now - timedelta(days=60),
+        "isDemo": True,
         "updatedAt": now
     }
-    # Also add the configured email as an alias or secondary teacher login
-    if settings.TEACHER_EMAIL != "teacher@tuition.com":
-        teacher_user_alt = {
+
+    # Upsert primary demo teacher
+    existing_t = await db.users.find_one({"$or": [{"username": "teacher"}, {"email": "teacher@example.com"}]})
+    if existing_t:
+        await db.users.update_one({"_id": existing_t["_id"]}, {"$set": demo_teacher})
+        teacher_user_id = str(existing_t["_id"])
+    else:
+        demo_teacher["_id"] = ObjectId()
+        demo_teacher["createdAt"] = now - timedelta(days=60)
+        res = await db.users.insert_one(demo_teacher)
+        teacher_user_id = str(res.inserted_id)
+
+    # Legacy alias teacher@tuition.com for backward compatibility
+    existing_alias = await db.users.find_one({"email": "teacher@tuition.com"})
+    if not existing_alias:
+        await db.users.insert_one({
             "_id": ObjectId(),
             "name": settings.TEACHER_NAME,
-            "email": settings.TEACHER_EMAIL.lower(),
-            "username": "sayan",
+            "email": "teacher@tuition.com",
+            "username": "teacher_alias",
             "passwordHash": teacher_pw,
             "role": "teacher",
             "studentId": None,
+            "isDemo": True,
             "createdAt": now - timedelta(days=60),
             "updatedAt": now
-        }
-        await db.users.insert_one(teacher_user_alt)
+        })
 
-    await db.users.insert_one(teacher_user)
-
-    # 2. Students & Linked User Accounts
+    # 2. Fictional Demo Students & User Accounts
     student_pw = get_password_hash("Student@123")
-
     demo_students = [
         {
             "name": "Aarav Mehta",
@@ -61,16 +70,18 @@ async def seed_demo_data_if_empty(db):
             "grade": "Class 10 - ICSE",
             "course": "Secondary Board Exam Mentorship",
             "subjects": ["Mathematics", "Physics", "Chemistry"],
-            "email": "aarav.mehta@example.com",
-            "mobile": "+91 98201 11223",
+            "email": "student1@example.com",
+            "legacyEmail": "aarav.mehta@example.com",
+            "mobile": "+91 98000 00001",
             "guardian": {
                 "name": "Sanjay Mehta",
-                "mobile": "+91 98201 99887",
-                "email": "sanjay.mehta@example.com",
+                "mobile": "+91 98000 00002",
+                "email": "parent1@example.com",
                 "relationship": "Father"
             },
             "enrollmentStatus": "active",
-            "notes": "Excellent aptitude in algebra. Needs minor reinforcement in geometric theorems."
+            "notes": "Fictional demo student record. Strong in algebra.",
+            "isDemo": True
         },
         {
             "name": "Diya Sen",
@@ -78,16 +89,18 @@ async def seed_demo_data_if_empty(db):
             "grade": "Grade 12 - CBSE",
             "course": "Senior Secondary Science Stream",
             "subjects": ["Mathematics", "Physics"],
-            "email": "diya.sen@example.com",
-            "mobile": "+91 98310 22334",
+            "email": "student2@example.com",
+            "legacyEmail": "diya.sen@example.com",
+            "mobile": "+91 98000 00003",
             "guardian": {
-                "name": "Ananya Sen",
-                "mobile": "+91 98310 88776",
-                "email": "ananya.sen@example.com",
-                "relationship": "Mother"
+                "name": "Sourav Sen",
+                "mobile": "+91 98000 00004",
+                "email": "parent2@example.com",
+                "relationship": "Father"
             },
             "enrollmentStatus": "active",
-            "notes": "Consistently scores 90%+. Preparing for upcoming engineering entrance mocks."
+            "notes": "Fictional demo student record. Physics enthusiast.",
+            "isDemo": True
         },
         {
             "name": "Rohan Verma",
@@ -95,16 +108,18 @@ async def seed_demo_data_if_empty(db):
             "grade": "Class 10 - CBSE",
             "course": "Secondary Board Intensive",
             "subjects": ["Mathematics"],
-            "email": "rohan.verma@example.com",
-            "mobile": "+91 98450 33445",
+            "email": "student3@example.com",
+            "legacyEmail": "rohan.verma@example.com",
+            "mobile": "+91 98000 00005",
             "guardian": {
                 "name": "Vikram Verma",
-                "mobile": "+91 98450 77665",
-                "email": "vikram.verma@example.com",
+                "mobile": "+91 98000 00006",
+                "email": "parent3@example.com",
                 "relationship": "Father"
             },
             "enrollmentStatus": "active",
-            "notes": "Benefiting greatly from step-by-step problem sessions. Attentive in class."
+            "notes": "Fictional demo student record. Diligent problem solver.",
+            "isDemo": True
         },
         {
             "name": "Ananya Iyer",
@@ -112,16 +127,18 @@ async def seed_demo_data_if_empty(db):
             "grade": "Grade 12 - CBSE",
             "course": "Senior Secondary Science Stream",
             "subjects": ["Physics", "Chemistry", "Mathematics"],
-            "email": "ananya.iyer@example.com",
-            "mobile": "+91 98800 44556",
+            "email": "student4@example.com",
+            "legacyEmail": "ananya.iyer@example.com",
+            "mobile": "+91 98000 00007",
             "guardian": {
-                "name": "Ramachandran Iyer",
-                "mobile": "+91 98800 66554",
-                "email": "ramachandran.iyer@example.com",
-                "relationship": "Father"
+                "name": "R. Iyer",
+                "mobile": "+91 98000 00008",
+                "email": "parent4@example.com",
+                "relationship": "Mother"
             },
             "enrollmentStatus": "active",
-            "notes": "Very diligent homework submissions. Strong in conceptual physics derivations."
+            "notes": "Fictional demo student record. Strong derivation skills.",
+            "isDemo": True
         },
         {
             "name": "Kabir Patel",
@@ -129,56 +146,93 @@ async def seed_demo_data_if_empty(db):
             "grade": "Grade 9 - State Board",
             "course": "Foundation Mathematics & Science",
             "subjects": ["Mathematics", "Science"],
-            "email": "kabir.patel@example.com",
-            "mobile": "+91 97240 55667",
+            "email": "student5@example.com",
+            "legacyEmail": "kabir.patel@example.com",
+            "mobile": "+91 98000 00009",
             "guardian": {
-                "name": "Meena Patel",
-                "mobile": "+91 97240 44332",
-                "email": "meena.patel@example.com",
-                "relationship": "Mother"
+                "name": "Nilesh Patel",
+                "mobile": "+91 98000 00010",
+                "email": "parent5@example.com",
+                "relationship": "Father"
             },
             "enrollmentStatus": "active",
-            "notes": "Joined mid-term. Catching up quickly on quadratic equations."
+            "notes": "Fictional demo student record. Foundation course learner.",
+            "isDemo": True
         }
     ]
 
     student_id_map = {}
-    for st in demo_students:
-        s_oid = ObjectId()
-        st["_id"] = s_oid
-        st["createdAt"] = now - timedelta(days=45)
-        st["updatedAt"] = now
-        await db.students.insert_one(st)
-        student_id_map[st["email"]] = str(s_oid)
+    for st_data in demo_students:
+        legacy_email = st_data.pop("legacyEmail", None)
+        uname = st_data["username"]
+        email = st_data["email"]
 
-        # Create user record for student sign-in
+        existing_st = await db.students.find_one({
+            "$or": [{"username": uname}, {"email": email}, {"email": legacy_email}]
+        })
+        if existing_st:
+            st_id = str(existing_st["_id"])
+            await db.students.update_one({"_id": existing_st["_id"]}, {"$set": st_data})
+        else:
+            new_oid = ObjectId()
+            st_id = str(new_oid)
+            st_data["_id"] = new_oid
+            st_data["createdAt"] = now - timedelta(days=45)
+            st_data["updatedAt"] = now
+            await db.students.insert_one(st_data)
+
+        student_id_map[uname] = st_id
+        student_id_map[email] = st_id
+        if legacy_email:
+            student_id_map[legacy_email] = st_id
+
+        # Upsert student user authentication account
         user_doc = {
-            "_id": ObjectId(),
-            "name": st["name"],
-            "email": st["email"],
-            "username": st["username"],
+            "name": st_data["name"],
+            "email": email,
+            "username": uname,
             "passwordHash": student_pw,
             "role": "student",
-            "studentId": str(s_oid),
-            "createdAt": now - timedelta(days=45),
+            "studentId": st_id,
+            "isDemo": True,
             "updatedAt": now
         }
-        await db.users.insert_one(user_doc)
+        existing_u = await db.users.find_one({"$or": [{"username": uname}, {"email": email}, {"email": legacy_email}]})
+        if existing_u:
+            await db.users.update_one({"_id": existing_u["_id"]}, {"$set": user_doc})
+        else:
+            user_doc["_id"] = ObjectId()
+            user_doc["createdAt"] = now - timedelta(days=45)
+            await db.users.insert_one(user_doc)
 
-    aarav_id = student_id_map["aarav.mehta@example.com"]
-    diya_id = student_id_map["diya.sen@example.com"]
-    rohan_id = student_id_map["rohan.verma@example.com"]
-    ananya_id = student_id_map["ananya.iyer@example.com"]
-    kabir_id = student_id_map["kabir.patel@example.com"]
+        # Also support legacy email login in development/testing
+        if legacy_email:
+            legacy_u = await db.users.find_one({"email": legacy_email})
+            if not legacy_u:
+                await db.users.insert_one({
+                    "_id": ObjectId(),
+                    "name": st_data["name"],
+                    "email": legacy_email,
+                    "username": f"{uname}_legacy",
+                    "passwordHash": student_pw,
+                    "role": "student",
+                    "studentId": st_id,
+                    "isDemo": True,
+                    "createdAt": now - timedelta(days=45),
+                    "updatedAt": now
+                })
 
+    aarav_id = student_id_map["aarav"]
+    diya_id = student_id_map["diya"]
+    rohan_id = student_id_map["rohan"]
+    ananya_id = student_id_map["ananya"]
+    kabir_id = student_id_map["kabir"]
     all_student_ids = [aarav_id, diya_id, rohan_id, ananya_id, kabir_id]
 
-    # 3. Classes
-    past_class_id = str(ObjectId())
+    # 3. Fictional Classes (Online & Offline)
     classes_data = [
         {
-            "_id": ObjectId(past_class_id),
-            "title": "Thermodynamics & Heat Transfer Fundamentals",
+            "title": "[Demo] Thermodynamics & Heat Transfer Fundamentals",
             "subject": "Physics",
             "grade": "Grade 12 - CBSE",
             "date": yesterday_str,
@@ -186,15 +240,14 @@ async def seed_demo_data_if_empty(db):
             "endTime": "19:00",
             "mode": "Online",
             "meetingLink": "https://meet.google.com/abc-tuition-demo",
-            "notes": "Covered Carnot engine cycles and entropy problems. Assigned problem set 3.",
+            "notes": "Covered Carnot engine cycles and entropy problems.",
             "assignedStudentIds": [diya_id, ananya_id],
             "status": "completed",
-            "createdAt": now - timedelta(days=5),
+            "isDemo": True,
             "updatedAt": now
         },
         {
-            "_id": ObjectId(),
-            "title": "Quadratic Equations Masterclass & Word Problems",
+            "title": "[Demo] Quadratic Equations Masterclass & Word Problems",
             "subject": "Mathematics",
             "grade": "Class 10 - ICSE / CBSE",
             "date": tomorrow_str,
@@ -202,15 +255,14 @@ async def seed_demo_data_if_empty(db):
             "endTime": "19:30",
             "mode": "Online",
             "meetingLink": "https://meet.google.com/xyz-math-live",
-            "notes": "Please keep your formula notebooks and NCERT/Selina textbooks handy.",
+            "notes": "Keep formula notebooks and NCERT textbooks handy.",
             "assignedStudentIds": [aarav_id, rohan_id, kabir_id],
             "status": "scheduled",
-            "createdAt": now - timedelta(days=2),
+            "isDemo": True,
             "updatedAt": now
         },
         {
-            "_id": ObjectId(),
-            "title": "Ray Optics: Spherical Mirrors & Lens Maker Formula",
+            "title": "[Demo] Ray Optics: Spherical Mirrors & Lens Maker Formula",
             "subject": "Physics",
             "grade": "Grade 12 - CBSE",
             "date": in_three_days_str,
@@ -218,15 +270,14 @@ async def seed_demo_data_if_empty(db):
             "endTime": "18:30",
             "mode": "Online",
             "meetingLink": "https://zoom.us/j/demo-tuition-session",
-            "notes": "Sign conventions and sign diagram practice.",
+            "notes": "Sign conventions and ray diagram practice.",
             "assignedStudentIds": [diya_id, ananya_id],
             "status": "scheduled",
-            "createdAt": now - timedelta(days=1),
+            "isDemo": True,
             "updatedAt": now
         },
         {
-            "_id": ObjectId(),
-            "title": "Weekly Doubt Clearing & Problem Solving Clinic",
+            "title": "[Demo] Weekly Doubt Clearing & Problem Solving Clinic",
             "subject": "Mathematics",
             "grade": "All Batches",
             "date": in_seven_days_str,
@@ -234,280 +285,288 @@ async def seed_demo_data_if_empty(db):
             "endTime": "12:00",
             "mode": "Offline",
             "meetingLink": "",
-            "notes": "Offline in-person classroom session at tuition center. Bring questions from past test papers.",
+            "notes": "Offline in-person classroom session at tuition center.",
             "assignedStudentIds": all_student_ids,
             "status": "scheduled",
-            "createdAt": now,
+            "isDemo": True,
             "updatedAt": now
         }
     ]
+
+    class_id_map = {}
     for c in classes_data:
-        await db.classes.insert_one(c)
+        title = c["title"]
+        existing_c = await db.classes.find_one({"title": title, "isDemo": True})
+        if existing_c:
+            class_id_map[title] = str(existing_c["_id"])
+            await db.classes.update_one({"_id": existing_c["_id"]}, {"$set": c})
+        else:
+            new_c_id = ObjectId()
+            c["_id"] = new_c_id
+            c["createdAt"] = now - timedelta(days=5)
+            await db.classes.insert_one(c)
+            class_id_map[title] = str(new_c_id)
 
-    # 4. Attendance Records for Past Class
+    thermo_class_id = class_id_map["[Demo] Thermodynamics & Heat Transfer Fundamentals"]
+
+    # 4. Attendance Records
     attendance_data = [
-        {
-            "_id": ObjectId(),
-            "classId": past_class_id,
-            "studentId": diya_id,
-            "status": "present",
-            "remarks": "Active participation in solving Carnot efficiency questions.",
-            "recordedAt": now - timedelta(days=1),
-            "updatedAt": now - timedelta(days=1)
-        },
-        {
-            "_id": ObjectId(),
-            "classId": past_class_id,
-            "studentId": ananya_id,
-            "status": "present",
-            "remarks": "On time and completed whiteboard calculation.",
-            "recordedAt": now - timedelta(days=1),
-            "updatedAt": now - timedelta(days=1)
-        }
+        {"classId": thermo_class_id, "studentId": diya_id, "status": "present", "remarks": "Active participation.", "isDemo": True},
+        {"classId": thermo_class_id, "studentId": ananya_id, "status": "late", "remarks": "Joined 10 mins late due to school lab.", "isDemo": True}
     ]
-    for a in attendance_data:
-        await db.attendance.insert_one(a)
-
-    # Class Feedback & Remarks for Past Class
-    feedback_data = [
-        {
-            "_id": ObjectId(),
-            "classId": past_class_id,
-            "studentId": diya_id,
-            "studentName": "Diya Sen",
-            "authorId": diya_id,
-            "authorName": "Diya Sen",
-            "authorRole": "student",
-            "feedback": "The explanation of Carnot cycle reversible stages was very clear. I will practice more numerical problems on entropy.",
-            "sharedWithStudent": False,
-            "createdAt": now - timedelta(days=1, hours=2),
-            "updatedAt": now - timedelta(days=1, hours=2)
-        },
-        {
-            "_id": ObjectId(),
-            "classId": past_class_id,
-            "studentId": diya_id,
-            "studentName": "Diya Sen",
-            "authorId": str(teacher_user["_id"]),
-            "authorName": settings.TEACHER_NAME,
-            "authorRole": "teacher",
-            "feedback": "Great focus during thermodynamics problem solving today. Please memorize the temperature ratio formula.",
-            "sharedWithStudent": True,
-            "createdAt": now - timedelta(days=1, hours=1),
-            "updatedAt": now - timedelta(days=1, hours=1)
-        }
-    ]
-    for fb in feedback_data:
-        await db.class_feedback.insert_one(fb)
+    for att in attendance_data:
+        existing_att = await db.attendance.find_one({"classId": att["classId"], "studentId": att["studentId"]})
+        if existing_att:
+            await db.attendance.update_one({"_id": existing_att["_id"]}, {"$set": att})
+        else:
+            att["_id"] = ObjectId()
+            att["recordedAt"] = now - timedelta(days=1)
+            await db.attendance.insert_one(att)
 
     # 5. Homework Assignments
-    hw1_id = str(ObjectId())
-    hw2_id = str(ObjectId())
-    hw3_id = str(ObjectId())
-
     homework_data = [
         {
-            "_id": ObjectId(hw1_id),
-            "title": "[DEMO] NCERT Exercise 4.3 - Quadratic Formulations",
+            "title": "[Demo] NCERT Chapter 4: Quadratic Formula & Discriminant Analysis",
             "subject": "Mathematics",
-            "instructions": "Solve Questions 1 through 10 from Exercise 4.3. Show step-by-step discriminant calculations for each quadratic equation.",
+            "instructions": "Solve Questions 1 through 15 from Exercise 4.3. Show discriminant analysis.",
             "assignedStudentIds": [aarav_id, rohan_id, kabir_id],
-            "assignedDate": yesterday_str,
-            "dueDate": in_three_days_str,  # Due soon
-            "attachmentUrl": "https://example.com/demo-handout-quadratic.pdf",
-            "attachmentName": "Quadratic_Equations_Handout.pdf",
+            "assignedDate": (now - timedelta(days=3)).strftime("%Y-%m-%d"),
+            "dueDate": yesterday_str,
+            "attachmentUrl": "/static/uploads/submissions/sample_assignment.pdf",
+            "attachmentName": "quadratic_equations_worksheet.pdf",
             "totalMarks": 50,
-            "createdAt": now - timedelta(days=2),
+            "isDemo": True,
             "updatedAt": now
         },
         {
-            "_id": ObjectId(hw2_id),
-            "title": "[DEMO] Electromagnetic Induction Numerical Problem Set",
+            "title": "[Demo] Numerical Problems on Lens Maker's Formula & Combinations",
             "subject": "Physics",
-            "instructions": "Complete the 5 numerical problems on Faraday's Law and Lenz's Law given on page 42 of the reference sheet.",
+            "instructions": "Calculate focal lengths of thin lenses in contact. Solve problems 5 to 12.",
             "assignedStudentIds": [diya_id, ananya_id],
-            "assignedDate": (now - timedelta(days=5)).strftime("%Y-%m-%d"),
-            "dueDate": yesterday_str,  # Overdue
-            "attachmentUrl": "https://example.com/demo-emi-problems.pdf",
-            "attachmentName": "EMI_Problems_Sheet.pdf",
-            "totalMarks": 40,
-            "createdAt": now - timedelta(days=5),
-            "updatedAt": now
-        },
-        {
-            "_id": ObjectId(hw3_id),
-            "title": "[DEMO] Trigonometric Identities Practice Sheet",
-            "subject": "Mathematics",
-            "instructions": "Verify all 8 trigonometric proof identities using standard Pythagorean and quotient relations.",
-            "assignedStudentIds": all_student_ids,
-            "assignedDate": (now - timedelta(days=8)).strftime("%Y-%m-%d"),
-            "dueDate": (now - timedelta(days=3)).strftime("%Y-%m-%d"),
+            "assignedDate": (now - timedelta(days=2)).strftime("%Y-%m-%d"),
+            "dueDate": tomorrow_str,
             "attachmentUrl": "",
             "attachmentName": "",
-            "totalMarks": 100,
-            "createdAt": now - timedelta(days=8),
+            "totalMarks": 40,
+            "isDemo": True,
+            "updatedAt": now
+        },
+        {
+            "title": "[Demo] Trigonometric Identities & Heights & Distances",
+            "subject": "Mathematics",
+            "instructions": "Complete Board past-year questions from 2020-2024.",
+            "assignedStudentIds": all_student_ids,
+            "assignedDate": today_str,
+            "dueDate": in_three_days_str,
+            "attachmentUrl": "",
+            "attachmentName": "",
+            "totalMarks": 30,
+            "isDemo": True,
             "updatedAt": now
         }
     ]
-    for hw in homework_data:
-        await db.homework.insert_one(hw)
+
+    hw_id_map = {}
+    for h in homework_data:
+        title = h["title"]
+        existing_h = await db.homework.find_one({"title": title, "isDemo": True})
+        if existing_h:
+            hw_id_map[title] = str(existing_h["_id"])
+            await db.homework.update_one({"_id": existing_h["_id"]}, {"$set": h})
+        else:
+            new_h_id = ObjectId()
+            h["_id"] = new_h_id
+            h["createdAt"] = now - timedelta(days=3)
+            await db.homework.insert_one(h)
+            hw_id_map[title] = str(new_h_id)
+
+    math_hw_id = hw_id_map["[Demo] NCERT Chapter 4: Quadratic Formula & Discriminant Analysis"]
+    phys_hw_id = hw_id_map["[Demo] Numerical Problems on Lens Maker's Formula & Combinations"]
 
     # 6. Submissions
     submissions_data = [
         {
-            "_id": ObjectId(),
-            "homeworkId": hw1_id,
+            "homeworkId": math_hw_id,
             "studentId": aarav_id,
-            "submissionText": "Dear Teacher, I have solved all 10 questions. Here is my working for Q7 and Q8 where the roots involve radical expressions. Please check my discriminant steps.",
-            "attachmentUrl": "https://example.com/demo-aarav-math-solutions.pdf",
-            "attachmentName": "Aarav_Math_HW_Exercise_4.3.pdf",
-            "submittedAt": now - timedelta(hours=3),
-            "status": "submitted",  # Awaiting review
-            "grade": None,
-            "feedback": None,
-            "updatedAt": now - timedelta(hours=3)
+            "submissionText": "Completed all 15 problems. Derivation steps shown in attached code solution.",
+            "attachmentUrl": "/static/uploads/submissions/aarav_quadratic.c",
+            "attachmentName": "quadratic_solver.c",
+            "status": "reviewed",
+            "grade": "48/50 (A+)",
+            "feedback": "Outstanding work! Very clean calculations.",
+            "submittedAt": now - timedelta(days=1),
+            "reviewedAt": now - timedelta(hours=12),
+            "isDemo": True
         },
         {
-            "_id": ObjectId(),
-            "homeworkId": hw2_id,
+            "homeworkId": math_hw_id,
+            "studentId": rohan_id,
+            "submissionText": "Solved questions 1-12. Need assistance on question 13.",
+            "attachmentUrl": "",
+            "attachmentName": "",
+            "status": "submitted",
+            "grade": None,
+            "feedback": None,
+            "submittedAt": now - timedelta(hours=8),
+            "isDemo": True
+        },
+        {
+            "homeworkId": phys_hw_id,
             "studentId": diya_id,
-            "submissionText": "Uploaded numerical solutions for questions 1 to 5. Special attention given to magnetic flux direction in question 3.",
-            "attachmentUrl": "https://example.com/demo-diya-physics-emi.pdf",
-            "attachmentName": "Diya_Sen_EMI_Numericals.pdf",
-            "submittedAt": now - timedelta(days=1, hours=4),
-            "status": "reviewed",
-            "grade": "38/40",
-            "feedback": "Outstanding working Diya! Very clear circuit diagrams and correct Lenz's law polarities.",
-            "reviewedAt": now - timedelta(hours=12),
-            "reviewedBy": settings.TEACHER_NAME,
-            "updatedAt": now - timedelta(hours=12)
+            "submissionText": "All numerical problems completed with sign diagrams.",
+            "attachmentUrl": "/static/uploads/submissions/diya_optics.pdf",
+            "attachmentName": "lens_maker_problems.pdf",
+            "status": "submitted",
+            "grade": None,
+            "feedback": None,
+            "submittedAt": now - timedelta(hours=4),
+            "isDemo": True
         }
     ]
     for sub in submissions_data:
-        await db.submissions.insert_one(sub)
+        existing_sub = await db.submissions.find_one({
+            "homeworkId": sub["homeworkId"],
+            "studentId": sub["studentId"]
+        })
+        if existing_sub:
+            await db.submissions.update_one({"_id": existing_sub["_id"]}, {"$set": sub})
+        else:
+            sub["_id"] = ObjectId()
+            await db.submissions.insert_one(sub)
 
-    # 7. Exams with Google Form Links
+    # 7. Exams
     exams_data = [
         {
-            "_id": ObjectId(),
-            "title": "[DEMO] Mid-Term Mathematics Mock Examination 2026",
+            "title": "[Demo] Term 2 Mid-Review: Quadratic Equations & AP",
             "subject": "Mathematics",
-            "grade": "Class 10 - ICSE / CBSE",
-            "date": in_three_days_str,
+            "grade": "Class 10",
+            "date": in_seven_days_str,
             "startTime": "10:00",
-            "endTime": "11:30",
-            "durationMinutes": 90,
-            "totalMarks": 80,
-            "syllabus": "Real Numbers, Polynomials, Linear Equations in Two Variables, Quadratic Equations, and Arithmetic Progressions.",
-            "formLink": "https://docs.google.com/forms/d/e/1FAIpQLSc-demo-exam-math/viewform",
-            "createdAt": now - timedelta(days=3),
+            "durationMinutes": 60,
+            "totalMarks": 50,
+            "syllabus": "Quadratic Equations, Nature of Roots, Arithmetic Progressions",
+            "formLink": "https://forms.gle/demo-quadratics-exam",
+            "isDemo": True,
             "updatedAt": now
         },
         {
-            "_id": ObjectId(),
-            "title": "[DEMO] Unit Test: Ray Optics & Modern Physics",
+            "title": "[Demo] Senior Physics Unit Test: Optics & Thermodynamics",
             "subject": "Physics",
-            "grade": "Grade 12 - CBSE",
-            "date": in_seven_days_str,
-            "startTime": "14:00",
-            "endTime": "15:00",
-            "durationMinutes": 60,
-            "totalMarks": 50,
-            "syllabus": "Reflection, Refraction at spherical surfaces, Dispersion, Photoelectric effect, and Bohr model of hydrogen atom.",
-            "formLink": "https://docs.google.com/forms/d/e/1FAIpQLSc-demo-exam-physics/viewform",
-            "createdAt": now - timedelta(days=2),
+            "grade": "Grade 12",
+            "date": (now + timedelta(days=10)).strftime("%Y-%m-%d"),
+            "startTime": "11:00",
+            "durationMinutes": 90,
+            "totalMarks": 70,
+            "syllabus": "Wave Optics, Ray Optics, Heat Transfer, Carnot Cycles",
+            "formLink": "https://forms.gle/demo-physics-test",
+            "isDemo": True,
             "updatedAt": now
         }
     ]
     for ex in exams_data:
-        await db.exams.insert_one(ex)
+        existing_ex = await db.exams.find_one({"title": ex["title"], "isDemo": True})
+        if existing_ex:
+            await db.exams.update_one({"_id": existing_ex["_id"]}, {"$set": ex})
+        else:
+            ex["_id"] = ObjectId()
+            ex["createdAt"] = now - timedelta(days=2)
+            await db.exams.insert_one(ex)
 
-    # 8. Fees & Recorded Manual Payments
-    fee_aarav_id = str(ObjectId())
-    fee_diya_id = str(ObjectId())
-    fee_rohan_id = str(ObjectId())
-    fee_ananya_id = str(ObjectId())
-
+    # 8. Fees & Manual Payments
     fees_data = [
         {
-            "_id": ObjectId(fee_aarav_id),
             "studentId": aarav_id,
-            "period": "November 2026 Tuition Fee",
+            "period": "November 2026 Tuition",
             "amount": 3500.0,
-            "dueDate": in_three_days_str,
-            "description": "Monthly fee for 10th Grade ICSE Mathematics & Science (8 sessions)",
-            "createdAt": now - timedelta(days=10),
+            "dueDate": yesterday_str,
+            "description": "8 sessions - Mathematics & Physics",
+            "isDemo": True,
             "updatedAt": now
         },
         {
-            "_id": ObjectId(fee_diya_id),
             "studentId": diya_id,
-            "period": "November 2026 Tuition Fee",
+            "period": "November 2026 Tuition",
             "amount": 4000.0,
-            "dueDate": (now + timedelta(days=5)).strftime("%Y-%m-%d"),
-            "description": "Monthly fee for 12th Grade CBSE Physics & Mathematics",
-            "createdAt": now - timedelta(days=10),
+            "dueDate": (now - timedelta(days=5)).strftime("%Y-%m-%d"),
+            "description": "Senior Physics & Mathematics Mentorship",
+            "isDemo": True,
             "updatedAt": now
         },
         {
-            "_id": ObjectId(fee_rohan_id),
             "studentId": rohan_id,
-            "period": "November 2026 Tuition Fee",
+            "period": "November 2026 Tuition",
             "amount": 3000.0,
             "dueDate": tomorrow_str,
-            "description": "Monthly fee for 10th Grade CBSE Mathematics",
-            "createdAt": now - timedelta(days=12),
+            "description": "Mathematics Secondary Batch",
+            "isDemo": True,
             "updatedAt": now
         },
         {
-            "_id": ObjectId(fee_ananya_id),
             "studentId": ananya_id,
-            "period": "October 2026 Tuition Fee",
+            "period": "November 2026 Tuition",
             "amount": 4000.0,
-            "dueDate": (now - timedelta(days=5)).strftime("%Y-%m-%d"),  # Overdue
-            "description": "Monthly fee for 12th Grade Science Batch",
-            "createdAt": now - timedelta(days=35),
+            "dueDate": in_three_days_str,
+            "description": "Senior Science Full Stream",
+            "isDemo": True,
             "updatedAt": now
         }
     ]
-    for fee in fees_data:
-        await db.fees.insert_one(fee)
 
-    # Payments: (Only teacher recorded manual payments)
+    fee_id_map = {}
+    for fee in fees_data:
+        key = f"{fee['studentId']}_{fee['period']}"
+        existing_f = await db.fees.find_one({"studentId": fee["studentId"], "period": fee["period"], "isDemo": True})
+        if existing_f:
+            fee_id_map[key] = str(existing_f["_id"])
+            await db.fees.update_one({"_id": existing_f["_id"]}, {"$set": fee})
+        else:
+            new_f_id = ObjectId()
+            fee["_id"] = new_f_id
+            fee["createdAt"] = now - timedelta(days=10)
+            await db.fees.insert_one(fee)
+            fee_id_map[key] = str(new_f_id)
+
+    # Manual Payments
+    diya_fee_id = fee_id_map.get(f"{diya_id}_November 2026 Tuition")
+    rohan_fee_id = fee_id_map.get(f"{rohan_id}_November 2026 Tuition")
+
     payments_data = [
-        # Diya paid in full via UPI (Teacher manually confirmed)
         {
-            "_id": ObjectId(),
             "studentId": diya_id,
-            "feeId": fee_diya_id,
+            "feeId": diya_fee_id,
             "amount": 4000.0,
             "paidAt": (now - timedelta(days=4)).strftime("%Y-%m-%d"),
             "method": "upi",
-            "reference": "UPI/432190823411/AXIS",
-            "note": "Paid via Google Pay to teacher UPI ID. Manually verified in Axis bank statement.",
+            "reference": "UPI/DEMO/432190823411",
+            "note": "Paid via Google Pay to teacher UPI ID sayan2008c@pthdfc. Confirmed manually.",
             "isReversal": False,
             "createdBy": settings.TEACHER_NAME,
-            "createdAt": now - timedelta(days=4)
+            "isDemo": True
         },
-        # Rohan made a partial cash payment of 1,500 out of 3,000
         {
-            "_id": ObjectId(),
             "studentId": rohan_id,
-            "feeId": fee_rohan_id,
+            "feeId": rohan_fee_id,
             "amount": 1500.0,
             "paidAt": (now - timedelta(days=2)).strftime("%Y-%m-%d"),
             "method": "cash",
-            "reference": "REC-NOV-042",
-            "note": "Received ₹1,500 in cash during evening session. Remaining ₹1,500 balance due.",
+            "reference": "REC-DEMO-042",
+            "note": "Received ₹1,500 in cash. Remaining ₹1,500 balance due.",
             "isReversal": False,
             "createdBy": settings.TEACHER_NAME,
-            "createdAt": now - timedelta(days=2)
+            "isDemo": True
         }
     ]
-    for pay in payments_data:
-        await db.payments.insert_one(pay)
 
-    # 9. Tuition Profile in settings
+    for pay in payments_data:
+        existing_p = await db.payments.find_one({"reference": pay["reference"], "isDemo": True})
+        if existing_p:
+            await db.payments.update_one({"_id": existing_p["_id"]}, {"$set": pay})
+        else:
+            pay["_id"] = ObjectId()
+            pay["createdAt"] = now - timedelta(days=2)
+            await db.payments.insert_one(pay)
+
+    # 9. Tuition Profile Settings
     settings_doc = {
         "type": "tuition_profile",
         "teacherName": settings.TEACHER_NAME,
@@ -529,4 +588,44 @@ async def seed_demo_data_if_empty(db):
         upsert=True
     )
 
-    logger.info("Demo dataset successfully initialized with realistic teacher, students, classes, attendance, homework, exams, fees, and payments!")
+    logger.info("Fictional demo dataset seeded successfully (idempotent, no duplicates created).")
+
+async def remove_demo_data(db):
+    """
+    Safely removes all fictional demo records created with isDemo: True.
+    Does NOT touch real production data, real users, or custom student profiles.
+    """
+    logger.info("Removing fictional demo records...")
+    demo_filter = {"isDemo": True}
+
+    # In MemoryDatabase or Motor
+    col_names = ["attendance", "submissions", "homework", "classes", "exams", "payments", "fees", "students", "users"]
+    results = {}
+    for c_name in col_names:
+        col = getattr(db, c_name)
+        if hasattr(col, "delete_many"):
+            res = await col.delete_many(demo_filter)
+            results[c_name] = getattr(res, "deleted_count", 0)
+        else:
+            # Fallback for mock collection without delete_many
+            to_delete = [doc["_id"] for doc in col.docs.values() if doc.get("isDemo") is True]
+            for doc_id in to_delete:
+                del col.docs[str(doc_id)]
+            results[c_name] = len(to_delete)
+
+    logger.info(f"Demo data cleanup completed: {results}")
+    return results
+
+async def get_demo_status(db):
+    """Reports total and demo record counts across collections"""
+    stats = {}
+    collections = ["users", "students", "classes", "homework", "fees", "payments"]
+    for col_name in collections:
+        col = getattr(db, col_name)
+        total = await col.count_documents()
+        demo = await col.count_documents({"isDemo": True})
+        stats[col_name] = {"total": total, "demo": demo, "production": total - demo}
+    return stats
+
+# Backward compatibility alias
+seed_demo_data_if_empty = seed_demo_data

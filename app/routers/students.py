@@ -290,17 +290,17 @@ async def set_student_password(
     new_hash = get_password_hash(payload.newPassword)
     now = datetime.now(timezone.utc)
 
-    # Find and update matching user record by studentId or email
-    user = await db.users.find_one({"$or": [{"studentId": str(oid)}, {"studentId": oid}, {"email": student["email"].lower()}]})
-    if user:
-        await db.users.update_one(
-            {"_id": user["_id"]},
-            {"$set": {"passwordHash": new_hash, "updatedAt": now}}
-        )
-    else:
+    # Update all matching user records by studentId or email
+    query = {"$or": [{"studentId": str(oid)}, {"studentId": oid}, {"email": student.get("email", "").lower()}]}
+    update_res = await db.users.update_many(
+        query,
+        {"$set": {"passwordHash": new_hash, "updatedAt": now}}
+    )
+    if update_res.matched_count == 0:
         # Create user account if didn't exist
         user_doc = {
             "email": student["email"].lower(),
+            "username": student.get("username", student["email"].split("@")[0].lower()),
             "passwordHash": new_hash,
             "name": student["name"],
             "role": "student",
