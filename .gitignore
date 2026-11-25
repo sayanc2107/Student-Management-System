@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+
+# Environment Variables & Secrets
+.env
+*.local.env
+
+# Uploads
+app/static/uploads/submissions/*
+!app/static/uploads/submissions/.gitkeep
+
+# IDEs & System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

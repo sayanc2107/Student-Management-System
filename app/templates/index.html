@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ tuition_name }} - Tuition Student Management System</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              300: '#a5b4fc',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- QRCode Generator -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="h-full flex flex-col text-slate-800 antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- TOP NOTIFICATION BANNER / DEMO BAR -->
+  <div id="demo-banner" class="bg-indigo-900 text-indigo-100 text-xs py-1.5 px-4 flex items-center justify-between border-b border-indigo-800 z-50">
+    <div class="flex items-center gap-2">
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-400 text-amber-950 uppercase tracking-wider">{{ tuition_name }}</span>
+      <span class="hidden sm:inline">Student Management System &bull; MongoDB Atlas Ready &bull; ₹ INR Currency</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-indigo-300">Quick Login:</span>
+      <button onclick="quickLogin('teacher', 'Teacher@123')" class="px-2 py-0.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-medium transition text-[11px]" title="Login as Teacher with username">Teacher (@teacher)</button>
+      <button onclick="quickLogin('aarav', 'Student@123')" class="px-2 py-0.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-medium transition text-[11px]" title="Login as Student with username">Student (@aarav)</button>
+      <button onclick="quickLogin('diya.sen@example.com', 'Student@123')" class="px-2 py-0.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-medium transition text-[11px]" title="Login as Student with email">Student (Email)</button>
+    </div>
+  </div>
+
+  <!-- AUTH SCREEN (Shown if not logged in) -->
+  <div id="auth-screen" class="hidden min-h-[calc(100vh-36px)] flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-indigo-50/40 to-slate-100">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200/80 p-8">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-50 text-brand-600 mb-3 shadow-inner">
+          <i data-lucide="graduation-cap" class="w-8 h-8"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">{{ tuition_name }}</h1>
+        <p class="text-sm text-slate-500 mt-1">Student & Tuition Management Portal</p>
+      </div>
+
+      <div id="auth-error" class="hidden mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+        <span id="auth-error-msg"></span>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Email or Username</label>
+          <div class="relative">
+            <i data-lucide="user" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+            <input type="text" id="login-email" required placeholder="e.g. aarav or student@example.com" class="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+          </div>
+          <span class="text-[10px] text-slate-400 mt-0.5 block">Sign in using either your assigned username or email address</span>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Password</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+            <input type="password" id="login-password" required placeholder="••••••••" class="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+          </div>
+        </div>
+        <button type="submit" id="login-btn" class="w-full py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2">
+          <span>Sign In</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+
+      <!-- Password Help Notice -->
+      <div class="mt-4 p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-[11px] text-slate-500 text-center flex items-center justify-center gap-1.5">
+        <i data-lucide="info" class="w-3.5 h-3.5 text-brand-600 shrink-0"></i>
+        <span><strong>Forgot password?</strong> Students must contact their teacher for a password reset.</span>
+      </div>
+
+      <div class="mt-6 pt-5 border-t border-slate-100 text-center text-xs text-slate-400">
+        Demo Credentials:<br>
+        <span class="font-medium text-slate-600">Teacher:</span> teacher or teacher@tuition.com / Teacher@123<br>
+        <span class="font-medium text-slate-600">Student:</span> aarav or aarav.mehta@example.com / Student@123
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER (Shown when authenticated) -->
+  <div id="main-app" class="hidden flex-1 flex flex-col md:flex-row h-full overflow-hidden">
+    
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="sidebar" class="w-full md:w-64 bg-slate-900 text-slate-200 flex flex-col shrink-0 border-r border-slate-800">
+      <!-- App Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white shadow-md shadow-brand-500/30">
+            <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="font-bold text-sm text-white leading-tight truncate w-36" title="{{ tuition_name }}">{{ tuition_name }}</div>
+            <div class="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+              <span id="role-badge" class="px-1.5 py-0.2 rounded font-semibold text-[10px] uppercase bg-brand-500/20 text-brand-300">Teacher</span>
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            </div>
+          </div>
+        </div>
+        <!-- Mobile Menu Close Button -->
+        <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="nav-links">
+        <!-- Rendered dynamically by role -->
+      </nav>
+
+      <!-- User Profile & Actions -->
+      <div class="p-3 border-t border-slate-800 bg-slate-950/60">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-8 h-8 rounded-full bg-slate-800 text-brand-300 font-bold flex items-center justify-center text-xs shrink-0" id="user-avatar">
+              RS
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-white truncate" id="user-display-name">Loading...</p>
+              <p class="text-[11px] text-slate-400 truncate" id="user-display-email">loading...</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="openChangePasswordModal()" title="Change My Password" class="text-slate-400 hover:text-brand-300 p-1.5 rounded-lg hover:bg-slate-800 transition">
+              <i data-lucide="key-round" class="w-4 h-4"></i>
+            </button>
+            <button onclick="logout()" title="Sign Out" class="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition">
+              <i data-lucide="log-out" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-y-auto">
+      
+      <!-- Top Bar -->
+      <header class="bg-white border-b border-slate-200/80 sticky top-0 z-30 px-4 py-3 sm:px-6 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+          <div>
+            <h2 id="page-title" class="text-lg font-bold text-slate-900 leading-none">Dashboard</h2>
+            <p id="page-subtitle" class="text-xs text-slate-500 mt-1 hidden sm:block">Overview and upcoming actions</p>
+          </div>
+        </div>
+
+        <!-- Header Actions -->
+        <div class="flex items-center gap-2" id="header-action-container">
+          <button onclick="refreshCurrentView()" title="Refresh Current Menu" class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition shadow-sm bg-white">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-brand-600" id="global-refresh-icon"></i>
+            <span class="hidden sm:inline">Refresh</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Page Views Container -->
+      <div class="p-4 sm:p-6 lg:p-8 flex-1">
+        
+        <!-- ========================================== -->
+        <!-- TEACHER DASHBOARD VIEW -->
+        <!-- ========================================== -->
+        <div id="view-teacher-dashboard" class="space-y-6 hidden">
+          <!-- KPI Stats Grid -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Active Students</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-1" id="stat-active-students">0</h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Enrolled learners</p>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <i data-lucide="users" class="w-6 h-6"></i>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Upcoming Classes</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-1" id="stat-upcoming-classes">0</h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Next 7 days</p>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i data-lucide="calendar" class="w-6 h-6"></i>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Pending Reviews</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-1" id="stat-pending-reviews">0</h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Submissions awaiting feedback</p>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <i data-lucide="file-check-2" class="w-6 h-6"></i>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Fees Due</p>
+                <h3 class="text-2xl font-bold text-rose-600 mt-1" id="stat-pending-fees">₹0</h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Unpaid / partly paid balance</p>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <i data-lucide="indian-rupee" class="w-6 h-6"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h4 class="text-base font-bold">Teacher Quick Actions</h4>
+              <p class="text-xs text-brand-100">Quickly add or record activities for your students</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="openModal('modal-add-student')" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs backdrop-blur-sm transition flex items-center gap-1.5 border border-white/20">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Add Student
+              </button>
+              <button onclick="openModal('modal-add-class')" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs backdrop-blur-sm transition flex items-center gap-1.5 border border-white/20">
+                <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i> Schedule Class
+              </button>
+              <button onclick="openModal('modal-add-homework')" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs backdrop-blur-sm transition flex items-center gap-1.5 border border-white/20">
+                <i data-lucide="file-plus" class="w-3.5 h-3.5"></i> Add Homework
+              </button>
+              <button onclick="openModal('modal-add-fee')" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs backdrop-blur-sm transition flex items-center gap-1.5 border border-white/20">
+                <i data-lucide="receipt" class="w-3.5 h-3.5"></i> Create Fee
+              </button>
+              <button onclick="preparePaymentModal()" class="px-3 py-1.5 rounded-xl bg-white text-emerald-700 hover:bg-emerald-50 font-bold text-xs shadow-sm transition flex items-center gap-1.5">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-emerald-600"></i> Record Payment
+              </button>
+              <button onclick="refreshCurrentView()" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs backdrop-blur-sm transition flex items-center gap-1.5 border border-white/20" title="Refresh Dashboard">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Two Column Layout: Classes & Submissions -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Upcoming Classes Card -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+              <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="calendar" class="w-4 h-4 text-brand-600"></i>
+                  <h3 class="font-bold text-sm text-slate-900">Upcoming Classes</h3>
+                </div>
+                <button onclick="navigateTo('classes')" class="text-xs text-brand-600 hover:text-brand-700 font-semibold">View All &rarr;</button>
+              </div>
+              <div class="p-4 flex-1 space-y-3" id="dash-upcoming-classes">
+                <div class="text-center py-6 text-slate-400 text-xs">Loading classes...</div>
+              </div>
+            </div>
+
+            <!-- Submissions Awaiting Review -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+              <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="file-check" class="w-4 h-4 text-amber-500"></i>
+                  <h3 class="font-bold text-sm text-slate-900">Submissions Awaiting Review</h3>
+                </div>
+                <button onclick="navigateTo('homework')" class="text-xs text-brand-600 hover:text-brand-700 font-semibold">View All &rarr;</button>
+              </div>
+              <div class="p-4 flex-1 space-y-3" id="dash-pending-submissions">
+                <div class="text-center py-6 text-slate-400 text-xs">Loading submissions...</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Two Column Layout: Homework Attention & Unpaid Fees -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Homework Due Soon & Overdue -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="clock" class="w-4 h-4 text-indigo-600"></i>
+                  <h3 class="font-bold text-sm text-slate-900">Homework Deadlines & Overdue</h3>
+                </div>
+                <button onclick="navigateTo('homework')" class="text-xs text-brand-600 hover:text-brand-700 font-semibold">Manage &rarr;</button>
+              </div>
+              <div class="p-4 space-y-3" id="dash-homework-deadlines">
+                <div class="text-center py-6 text-slate-400 text-xs">Loading deadlines...</div>
+              </div>
+            </div>
+
+            <!-- Students with Unpaid / Partly Paid Fees -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-500"></i>
+                  <h3 class="font-bold text-sm text-slate-900">Students with Unpaid / Partly Paid Fees</h3>
+                </div>
+                <button onclick="navigateTo('fees')" class="text-xs text-brand-600 hover:text-brand-700 font-semibold">Fees Ledger &rarr;</button>
+              </div>
+              <div class="p-4 space-y-3" id="dash-unpaid-students">
+                <div class="text-center py-6 text-slate-400 text-xs">Loading fee balances...</div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- STUDENT DASHBOARD VIEW -->
+        <!-- ========================================== -->
+        <div id="view-student-dashboard" class="space-y-6 hidden">
+          <!-- Student Welcome Banner -->
+          <div class="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-6 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white/20 text-white uppercase tracking-wider">Student Portal</span>
+              <h2 class="text-2xl font-bold mt-1">Hello, <span id="student-welcome-name">Student</span>!</h2>
+              <p class="text-xs text-brand-100 mt-1">Here is your upcoming schedule, assignments, and academic status.</p>
+            </div>
+            <!-- Quick Contact Teacher Button -->
+            <div class="flex flex-wrap items-center gap-2">
+              <a id="student-mailto-btn" href="#" class="px-4 py-2 rounded-xl bg-white text-brand-700 hover:bg-brand-50 font-semibold text-xs shadow-sm transition flex items-center gap-2">
+                <i data-lucide="mail" class="w-4 h-4"></i>
+                <span>Email Teacher</span>
+              </a>
+              <button onclick="navigateTo('fees')" class="px-4 py-2 rounded-xl bg-brand-800/60 hover:bg-brand-800 text-white font-semibold text-xs border border-white/20 transition flex items-center gap-2">
+                <i data-lucide="qr-code" class="w-4 h-4"></i>
+                <span>Pay Fees (UPI)</span>
+              </button>
+              <button onclick="refreshCurrentView()" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/20 transition flex items-center gap-1.5" title="Refresh Portal">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Student KPI Row -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500 tracking-wider">My Upcoming Classes</p>
+                <h3 class="text-2xl font-bold text-slate-900 mt-1" id="student-stat-classes">0</h3>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i data-lucide="calendar" class="w-6 h-6"></i>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Pending Homework</p>
+                <h3 class="text-2xl font-bold text-amber-600 mt-1" id="student-stat-homework">0</h3>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <i data-lucide="file-text" class="w-6 h-6"></i>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Fee Balance Due</p>
+                <h3 class="text-2xl font-bold text-rose-600 mt-1" id="student-stat-balance">₹0</h3>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <i data-lucide="indian-rupee" class="w-6 h-6"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Student Schedule & Homework Grid -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Next Classes -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <i data-lucide="calendar" class="w-4 h-4 text-brand-600"></i> My Next Classes
+                </h3>
+                <button onclick="navigateTo('classes')" class="text-xs text-brand-600 font-semibold">View Calendar &rarr;</button>
+              </div>
+              <div class="p-4 space-y-3" id="student-dash-classes">
+                <div class="text-center py-6 text-slate-400 text-xs">No upcoming classes.</div>
+              </div>
+            </div>
+
+            <!-- Homework To Do -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <i data-lucide="file-text" class="w-4 h-4 text-indigo-600"></i> Homework & Submissions
+                </h3>
+                <button onclick="navigateTo('homework')" class="text-xs text-brand-600 font-semibold">View All &rarr;</button>
+              </div>
+              <div class="p-4 space-y-3" id="student-dash-homework">
+                <div class="text-center py-6 text-slate-400 text-xs">No pending homework.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Teacher Contact Card -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h3 class="font-bold text-sm text-slate-900 mb-4 flex items-center gap-2">
+              <i data-lucide="contact" class="w-4 h-4 text-brand-600"></i> Tuition Teacher Contact
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div class="p-3 bg-slate-50 rounded-xl">
+                <p class="text-slate-400 font-semibold uppercase text-[10px]">Teacher Name</p>
+                <p class="font-bold text-slate-800 text-sm mt-0.5" id="teacher-card-name">{{ teacher_name }}</p>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-xl">
+                <p class="text-slate-400 font-semibold uppercase text-[10px]">Email</p>
+                <a id="teacher-card-email-link" href="#" class="font-bold text-brand-600 hover:underline text-sm mt-0.5 block truncate">Loading...</a>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-xl">
+                <p class="text-slate-400 font-semibold uppercase text-[10px]">Phone / WhatsApp</p>
+                <p class="font-bold text-slate-800 text-sm mt-0.5" id="teacher-card-phone">+91 98765 43210</p>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-xl">
+                <p class="text-slate-400 font-semibold uppercase text-[10px]">UPI ID for Tuition Fees</p>
+                <p class="font-mono font-bold text-indigo-700 text-sm mt-0.5" id="teacher-card-upi">{{ teacher_upi_id }}</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- STUDENTS MANAGEMENT VIEW (Teacher Only) -->
+        <!-- ========================================== -->
+        <div id="view-students" class="space-y-6 hidden">
+          <!-- Filter & Search Toolbar -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div class="w-full sm:w-72 relative">
+              <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+              <input type="text" id="student-search-input" oninput="debounce(loadStudents, 300)()" placeholder="Search name, phone, course..." class="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <select id="student-status-filter" onchange="loadStudents()" class="text-xs px-3 py-1.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                <option value="all">All Statuses</option>
+                <option value="active" selected>Active Only</option>
+                <option value="inactive">Inactive</option>
+                <option value="archived">Archived</option>
+              </select>
+              <button onclick="openAddStudentModal()" class="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-sm transition flex items-center gap-1.5 ml-auto">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Add Student
+              </button>
+              <button onclick="refreshCurrentView()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-sm transition flex items-center gap-1.5" title="Refresh Students">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Students Table Card -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                    <th class="py-3 px-4">Student</th>
+                    <th class="py-3 px-4">Username</th>
+                    <th class="py-3 px-4">Grade & Course</th>
+                    <th class="py-3 px-4">Subjects</th>
+                    <th class="py-3 px-4">Student Contact</th>
+                    <th class="py-3 px-4">Parent / Guardian</th>
+                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="students-table-body" class="divide-y divide-slate-100 text-slate-700">
+                  <tr>
+                    <td colspan="8" class="py-8 text-center text-slate-400">Loading students...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCHEDULE & CLASSES VIEW (Month Navigation & Mode) -->
+        <!-- ========================================== -->
+        <div id="view-classes" class="space-y-6 hidden">
+          <!-- Toolbar with Month Controls -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+            <!-- Calendar Month Navigator -->
+            <div class="flex items-center gap-2">
+              <button onclick="changeClassMonth(-1)" class="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 transition" title="Previous Month">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+              </button>
+              <div class="px-4 py-1.5 rounded-xl bg-slate-100 font-bold text-xs text-slate-800 min-w-[140px] text-center" id="class-month-label">
+                Loading Month...
+              </div>
+              <button onclick="changeClassMonth(1)" class="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 transition" title="Next Month">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+              </button>
+              <button onclick="goToCurrentMonth()" class="px-2.5 py-1 rounded-xl border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-600 transition">
+                Current Month
+              </button>
+              <button onclick="refreshCurrentView()" class="px-2.5 py-1 rounded-xl border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-600 transition flex items-center gap-1" title="Refresh Schedule">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+              </button>
+            </div>
+
+            <!-- Filter and Actions -->
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-slate-500">Subject:</span>
+              <select id="class-subject-filter" onchange="loadClasses()" class="text-xs px-3 py-1.5 rounded-xl border border-slate-200 bg-white">
+                <option value="all">All Subjects</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Physics">Physics</option>
+                <option value="Chemistry">Chemistry</option>
+                <option value="Science">Science</option>
+              </select>
+            </div>
+
+            <div id="class-teacher-actions">
+              <button onclick="openModal('modal-add-class')" class="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Schedule Class
+              </button>
+            </div>
+          </div>
+
+          <!-- Classes Grid -->
+          <div id="classes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="col-span-full py-12 text-center text-slate-400 text-xs">Loading classes...</div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- HOMEWORK & SUBMISSIONS VIEW -->
+        <!-- ========================================== -->
+        <div id="view-homework" class="space-y-6 hidden">
+          <!-- Toolbar -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-slate-500">Filter:</span>
+              <select id="hw-subject-filter" onchange="loadHomework()" class="text-xs px-3 py-1.5 rounded-xl border border-slate-200 bg-white">
+                <option value="all">All Subjects</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="Physics">Physics</option>
+                <option value="Chemistry">Chemistry</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <div id="hw-teacher-actions">
+                <button onclick="openModal('modal-add-homework')" class="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i> Create Homework
+                </button>
+              </div>
+              <button onclick="refreshCurrentView()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-sm transition flex items-center gap-1.5" title="Refresh Homework">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Homework List -->
+          <div id="homework-list" class="space-y-4">
+            <div class="py-12 text-center text-slate-400 text-xs">Loading homework...</div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- EXAMS VIEW -->
+        <!-- ========================================== -->
+        <div id="view-exams" class="space-y-6 hidden">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-sm text-slate-900">Exams & Assessment Links</h3>
+              <p class="text-xs text-slate-500">Scheduled tests with syllabus and Google Form test links</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <div id="exam-teacher-actions">
+                <button onclick="openModal('modal-add-exam')" class="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i> Schedule Exam
+                </button>
+              </div>
+              <button onclick="refreshCurrentView()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-sm transition flex items-center gap-1.5" title="Refresh Exams">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div id="exams-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="col-span-full py-12 text-center text-slate-400 text-xs">Loading exams...</div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- FEES & PAYMENTS VIEW -->
+        <!-- ========================================== -->
+        <div id="view-fees" class="space-y-6 hidden">
+          
+          <!-- UPI Payment Notice for Students -->
+          <div id="student-upi-payment-card" class="hidden bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-700">
+            <div class="flex flex-col md:flex-row items-center gap-6 justify-between">
+              <div class="space-y-3 flex-1">
+                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-400 text-amber-950 uppercase tracking-wider">Direct UPI Payment</span>
+                <h3 class="text-xl font-bold">Pay Direct to Teacher's UPI</h3>
+                <p class="text-xs text-indigo-200 leading-relaxed">
+                  Scan the QR code or use the UPI ID below in Google Pay, PhonePe, Paytm, or BHIM.
+                  Please mention your name and month in the UPI transaction remarks.
+                </p>
+                <div class="p-3 bg-white/10 rounded-xl border border-white/10 flex items-center justify-between">
+                  <div>
+                    <span class="text-[10px] text-indigo-300 uppercase font-semibold">Teacher UPI ID</span>
+                    <p class="font-mono font-bold text-sm text-amber-300" id="student-view-upi-id">{{ teacher_upi_id }}</p>
+                  </div>
+                  <button onclick="copyUpiId()" class="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-xs font-semibold text-white transition flex items-center gap-1">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy
+                  </button>
+                </div>
+                <div class="p-2.5 bg-rose-500/20 rounded-xl border border-rose-400/30 text-[11px] text-rose-200">
+                  <strong>Important:</strong> We do not rely on uploaded screenshots. Your fee record is updated when the teacher manually confirms receipt from their bank statement.
+                </div>
+              </div>
+              <!-- QR Code Container -->
+              <div class="bg-white p-4 rounded-2xl shadow-lg shrink-0 flex flex-col items-center">
+                <div id="student-upi-qrcode" class="w-40 h-40 flex items-center justify-center"></div>
+                <p class="text-[11px] font-bold text-slate-800 mt-2 text-center">Scan to Pay with UPI</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fees Toolbar -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-slate-500">Status:</span>
+              <select id="fee-status-filter" onchange="loadFees()" class="text-xs px-3 py-1.5 rounded-xl border border-slate-200 bg-white">
+                <option value="all">All Fees</option>
+                <option value="unpaid">Unpaid Only</option>
+                <option value="partly_paid">Partly Paid</option>
+                <option value="overdue">Overdue Only</option>
+                <option value="paid">Paid in Full</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <div id="fee-teacher-actions" class="flex items-center gap-2">
+                <button onclick="preparePaymentModal()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
+                  <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Record Payment
+                </button>
+                <button onclick="openModal('modal-add-fee')" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs shadow-sm transition flex items-center gap-1.5">
+                  <i data-lucide="receipt" class="w-3.5 h-3.5"></i> Create Fee Charge
+                </button>
+              </div>
+              <button onclick="refreshCurrentView()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-sm transition flex items-center gap-1.5" title="Refresh Fees">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Fees Ledger Table -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 class="font-bold text-sm text-slate-900">Fee Charges Ledger</h3>
+              <span class="text-xs text-slate-400">Total charges billed to students</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                    <th class="py-3 px-4">Student</th>
+                    <th class="py-3 px-4">Period / Month</th>
+                    <th class="py-3 px-4">Due Date</th>
+                    <th class="py-3 px-4 text-right">Fee Amount</th>
+                    <th class="py-3 px-4 text-right">Paid So Far</th>
+                    <th class="py-3 px-4 text-right">Balance Due</th>
+                    <th class="py-3 px-4 text-center">Status</th>
+                    <th class="py-3 px-4 text-right" id="fee-th-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="fees-table-body" class="divide-y divide-slate-100 text-slate-700">
+                  <tr>
+                    <td colspan="8" class="py-8 text-center text-slate-400">Loading fees...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Payments Recorded Table -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-sm text-slate-900">Payment Audit Trail</h3>
+                <p class="text-[11px] text-slate-400">Recorded payments and reversal history</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+                    <th class="py-3 px-4">Date</th>
+                    <th class="py-3 px-4">Student</th>
+                    <th class="py-3 px-4">Method</th>
+                    <th class="py-3 px-4">Reference / UTR</th>
+                    <th class="py-3 px-4">Note</th>
+                    <th class="py-3 px-4 text-right">Amount</th>
+                    <th class="py-3 px-4 text-right" id="payment-th-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="payments-table-body" class="divide-y divide-slate-100 text-slate-700">
+                  <tr>
+                    <td colspan="7" class="py-8 text-center text-slate-400">Loading payments...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SETTINGS & PROFILE VIEW (Teacher Only) -->
+        <!-- ========================================== -->
+        <div id="view-settings" class="space-y-6 hidden">
+          <div class="max-w-4xl space-y-6">
+            <!-- Profile Settings Form -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+              <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                <div>
+                  <h3 class="font-bold text-base text-slate-900 mb-0.5">Tuition & Teacher Profile</h3>
+                  <p class="text-xs text-slate-500">These details are shown to enrolled students on their portal.</p>
+                </div>
+                <button onclick="refreshCurrentView()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-sm transition flex items-center gap-1.5" title="Refresh Settings">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+                </button>
+              </div>
+              
+              <form id="settings-form" onsubmit="saveSettings(event)" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Teacher Full Name</label>
+                    <input type="text" id="setting-teacher-name" required class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Tuition / ERP System Name</label>
+                    <input type="text" id="setting-tuition-name" required class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Teacher Email (for Student mailto link)</label>
+                    <input type="email" id="setting-teacher-email" required class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Teacher Phone / WhatsApp</label>
+                    <input type="text" id="setting-teacher-phone" required class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Teacher UPI ID (for Direct Student Payments)</label>
+                    <input type="text" id="setting-upi-id" required placeholder="sayan2008c@pthdfc" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 font-mono">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Payee Name on UPI</label>
+                    <input type="text" id="setting-upi-name" required class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200">
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">Tuition Address / Location</label>
+                  <textarea id="setting-tuition-address" rows="2" class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200"></textarea>
+                </div>
+
+                <div class="flex justify-end pt-2">
+                  <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-sm transition">
+                    Save Profile Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Database & System Status Card -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+              <h3 class="font-bold text-base text-slate-900 mb-1">System & Database Status</h3>
+              <p class="text-xs text-slate-500 mb-4">Underlying environment and MongoDB connection info</p>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                <div class="p-3 bg-slate-50 rounded-xl">
+                  <span class="text-slate-400 font-semibold uppercase text-[10px]">Database Engine</span>
+                  <p class="font-bold text-slate-800 mt-1" id="system-db-engine">MongoDB Atlas</p>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl">
+                  <span class="text-slate-400 font-semibold uppercase text-[10px]">Active Timezone</span>
+                  <p class="font-bold text-slate-800 mt-1" id="system-timezone">Asia/Kolkata (IST)</p>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl">
+                  <span class="text-slate-400 font-semibold uppercase text-[10px]">Default Currency</span>
+                  <p class="font-bold text-slate-800 mt-1" id="system-currency">₹ INR</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODALS -->
+  <!-- ========================================================================= -->
+
+  <!-- Modal: Change Own Password (Teacher or Student) -->
+  <div id="modal-change-password" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900">Change Password</h3>
+        <button onclick="closeModal('modal-change-password')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="change-password-form" onsubmit="handleChangePassword(event)" class="space-y-4 mt-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Current Password *</label>
+          <input type="password" id="cp-current" required placeholder="••••••••" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">New Password (min 6 characters) *</label>
+          <input type="password" id="cp-new" required minlength="6" placeholder="••••••••" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Confirm New Password *</label>
+          <input type="password" id="cp-confirm" required minlength="6" placeholder="••••••••" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-change-password')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">Update Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Teacher Set Student Password -->
+  <div id="modal-set-student-password" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-slate-900">Set Student Password</h3>
+          <p class="text-xs text-slate-500" id="set-pw-student-name">Student</p>
+        </div>
+        <button onclick="closeModal('modal-set-student-password')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="set-student-password-form" onsubmit="handleSetStudentPassword(event)" class="space-y-4 mt-4 text-xs">
+        <input type="hidden" id="set-pw-student-id">
+        <p class="text-[11px] text-slate-500">As the teacher, choose a new password for this student. Passwords are securely hashed with bcrypt and never stored in plain text.</p>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">New Student Password (min 6 characters) *</label>
+          <input type="text" id="set-pw-new" required minlength="6" placeholder="e.g. Student@2026" class="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono">
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-set-student-password')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">Set Student Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Class Feedback & Remarks -->
+  <div id="modal-class-feedback" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-slate-900" id="feedback-modal-title">Class Feedback & Remarks</h3>
+          <p class="text-xs text-slate-500" id="feedback-modal-meta">Class session</p>
+        </div>
+        <button onclick="closeModal('modal-class-feedback')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Existing Remarks Container -->
+      <div class="flex-1 overflow-y-auto py-3 space-y-3" id="class-feedback-list">
+        <div class="text-center py-6 text-slate-400 text-xs">Loading feedback...</div>
+      </div>
+
+      <!-- Add Feedback Form -->
+      <form id="class-feedback-form" onsubmit="handlePostClassFeedback(event)" class="pt-3 border-t border-slate-100 space-y-3 text-xs">
+        <input type="hidden" id="feedback-class-id">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1" id="feedback-input-label">Submit Your Remarks / Feedback:</label>
+          <textarea id="feedback-text" rows="3" required placeholder="Write your questions, concepts needing revision, or teacher guidance..." class="w-full px-3 py-2 rounded-xl border border-slate-200"></textarea>
+        </div>
+        
+        <div class="flex items-center justify-between">
+          <div id="feedback-share-toggle-container" class="flex items-center gap-2">
+            <input type="checkbox" id="feedback-share-toggle" checked class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+            <label for="feedback-share-toggle" class="text-slate-600 text-[11px] font-medium">Share this remark with the student</label>
+          </div>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-sm transition">
+            Post Feedback
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Student -->
+  <div id="modal-add-student" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900" id="student-modal-title">Add New Student</h3>
+        <button onclick="closeModal('modal-add-student')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="student-form" onsubmit="handleSaveStudent(event)" class="space-y-4 mt-4 text-xs">
+        <input type="hidden" id="student-form-id">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Student Full Name *</label>
+            <input type="text" id="s-name" required placeholder="e.g. Aarav Mehta" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Username (Student Login ID)</label>
+            <input type="text" id="s-username" placeholder="e.g. aarav (auto-created if empty)" class="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Class / Grade *</label>
+            <input type="text" id="s-grade" required placeholder="e.g. Class 10 - ICSE" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Course / Batch</label>
+            <input type="text" id="s-course" placeholder="e.g. Science Stream" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Subjects (comma separated) *</label>
+          <input type="text" id="s-subjects" required placeholder="Mathematics, Physics, Chemistry" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Student Email (Login ID) *</label>
+            <input type="email" id="s-email" required placeholder="student@example.com" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Student Mobile Number *</label>
+            <input type="text" id="s-mobile" required placeholder="+91 98201 11223" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+
+        <!-- Guardian Details -->
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
+          <p class="font-bold text-slate-800 text-[11px] uppercase tracking-wider">Parent / Guardian Information (Private to Teacher)</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Guardian Name *</label>
+              <input type="text" id="g-name" required placeholder="e.g. Sanjay Mehta" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Relationship</label>
+              <input type="text" id="g-relationship" placeholder="Father / Mother / Guardian" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Guardian Mobile *</label>
+              <input type="text" id="g-mobile" required placeholder="+91 98201 99887" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Guardian Email</label>
+              <input type="email" id="g-email" placeholder="parent@example.com" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Enrollment Status</label>
+            <select id="s-status" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Initial Password for Student</label>
+            <input type="text" disabled value="Student@123" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Teacher Notes</label>
+          <textarea id="s-notes" rows="2" placeholder="Academic strengths, weaknesses, milestones..." class="w-full px-3 py-2 rounded-xl border border-slate-200"></textarea>
+        </div>
+
+        <div class="p-2.5 bg-indigo-50 rounded-xl border border-indigo-100 text-[11px] text-indigo-900 space-y-0.5">
+          <p><strong>Login Credentials:</strong> Initial password is <code class="font-mono bg-white px-1 py-0.2 rounded border border-indigo-200">Student@123</code>.</p>
+          <p>The student can sign in using either their assigned <strong>Username</strong> or their <strong>Email Address</strong>.</p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-add-student')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">Save Student</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Student Profile Details & Audit View -->
+  <div id="modal-student-details" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-slate-900" id="detail-student-name">Student Details</h3>
+          <p class="text-xs text-slate-400" id="detail-student-meta">Class & Course</p>
+        </div>
+        <button onclick="closeModal('modal-student-details')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="mt-4 space-y-4" id="detail-student-content">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Schedule Class (With Online / Offline Mode) -->
+  <div id="modal-add-class" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900">Schedule Class Session</h3>
+        <button onclick="closeModal('modal-add-class')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="class-form" onsubmit="handleSaveClass(event)" class="space-y-4 mt-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Class Title / Topic *</label>
+          <input type="text" id="c-title" required placeholder="e.g. Quadratic Equations Masterclass" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Subject *</label>
+            <input type="text" id="c-subject" required placeholder="e.g. Mathematics" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Batch / Grade</label>
+            <input type="text" id="c-grade" placeholder="e.g. Class 10" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+
+        <!-- Class Mode: Online or Offline -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Class Mode *</label>
+            <select id="c-mode" onchange="toggleClassModeFields()" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-semibold">
+              <option value="Online">🌐 Online Class</option>
+              <option value="Offline">📍 Offline (In-Person)</option>
+            </select>
+          </div>
+          <div id="c-meeting-link-wrapper">
+            <label class="block font-semibold text-slate-700 mb-1">Meeting Link (Optional)</label>
+            <input type="url" id="c-meeting-link" placeholder="https://meet.google.com/..." class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Date *</label>
+            <input type="date" id="c-date" required class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Start Time *</label>
+            <input type="time" id="c-start-time" required value="17:00" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">End Time *</label>
+            <input type="time" id="c-end-time" required value="18:30" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Notes / Instructions for Students</label>
+          <textarea id="c-notes" rows="2" placeholder="Bring formula notebook and homework solutions..." class="w-full px-3 py-2 rounded-xl border border-slate-200"></textarea>
+        </div>
+
+        <!-- Assign Class To (All or Dedicated Students) -->
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+          <label class="block font-semibold text-slate-800">Assign Session To *</label>
+          <div class="flex items-center gap-4 text-xs">
+            <label class="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+              <input type="radio" name="c-assign-type" value="all" checked onchange="toggleStudentPicker('class')" class="text-brand-600 focus:ring-brand-500">
+              <span>All Students</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+              <input type="radio" name="c-assign-type" value="dedicated" onchange="toggleStudentPicker('class')" class="text-brand-600 focus:ring-brand-500">
+              <span>Dedicated Students</span>
+            </label>
+          </div>
+
+          <div id="c-students-picker" class="hidden pt-2 border-t border-slate-200/60 space-y-2">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-slate-500">Select one or more students:</span>
+              <div class="flex gap-2 font-semibold">
+                <button type="button" onclick="selectAllPickerStudents('class', true)" class="text-brand-600 hover:underline">Select All</button>
+                <span class="text-slate-300">|</span>
+                <button type="button" onclick="selectAllPickerStudents('class', false)" class="text-slate-500 hover:underline">Clear</button>
+              </div>
+            </div>
+            <div id="c-students-checkboxes" class="max-h-36 overflow-y-auto space-y-1.5 p-2 bg-white rounded-lg border border-slate-200">
+              <!-- Dynamically populated student checkboxes -->
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-add-class')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">Save Schedule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Attendance Roster Marker -->
+  <div id="modal-attendance" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-slate-900" id="att-class-title">Mark Attendance</h3>
+          <p class="text-xs text-slate-500" id="att-class-meta">Class session</p>
+        </div>
+        <button onclick="closeModal('modal-attendance')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="py-3 flex items-center justify-between border-b border-slate-100">
+        <span class="text-xs font-semibold text-slate-500">Student Attendance Roster</span>
+        <div class="flex items-center gap-2">
+          <button onclick="markAllAttendance('present')" class="text-xs font-semibold text-brand-600 hover:text-brand-700">All Present</button>
+          <span class="text-slate-300">|</span>
+          <button onclick="markAllAttendance('absent')" class="text-xs font-semibold text-rose-600 hover:text-rose-700">All Absent</button>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto py-3 space-y-3" id="att-roster-list">
+        <!-- Dynamic student roster rows -->
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+        <button onclick="closeModal('modal-attendance')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50">Cancel</button>
+        <button onclick="saveAttendanceBulk()" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-sm">Save Attendance</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Homework -->
+  <div id="modal-add-homework" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900">Create Homework Assignment</h3>
+        <button onclick="closeModal('modal-add-homework')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="homework-form" onsubmit="handleSaveHomework(event)" class="space-y-4 mt-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Homework Title *</label>
+          <input type="text" id="hw-title" required placeholder="e.g. NCERT Exercise 4.3" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Subject *</label>
+            <input type="text" id="hw-subject" required placeholder="Mathematics" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Total Marks</label>
+            <input type="number" id="hw-total-marks" value="50" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Instructions / Questions *</label>
+          <textarea id="hw-instructions" rows="3" required placeholder="Solve Questions 1 through 10. Show step-by-step discriminant calculations." class="w-full px-3 py-2 rounded-xl border border-slate-200"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Assigned Date</label>
+            <input type="date" id="hw-assigned-date" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Due Date *</label>
+            <input type="date" id="hw-due-date" required class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Optional Handout / Attachment Link (URL)</label>
+          <input type="url" id="hw-attachment-url" placeholder="https://..." class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+
+        <!-- Assign Homework To (All or Dedicated Students) -->
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+          <label class="block font-semibold text-slate-800">Assign Homework To *</label>
+          <div class="flex items-center gap-4 text-xs">
+            <label class="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+              <input type="radio" name="hw-assign-type" value="all" checked onchange="toggleStudentPicker('hw')" class="text-brand-600 focus:ring-brand-500">
+              <span>All Students</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700">
+              <input type="radio" name="hw-assign-type" value="dedicated" onchange="toggleStudentPicker('hw')" class="text-brand-600 focus:ring-brand-500">
+              <span>Dedicated Students</span>
+            </label>
+          </div>
+
+          <div id="hw-students-picker" class="hidden pt-2 border-t border-slate-200/60 space-y-2">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-slate-500">Select one or more students:</span>
+              <div class="flex gap-2 font-semibold">
+                <button type="button" onclick="selectAllPickerStudents('hw', true)" class="text-brand-600 hover:underline">Select All</button>
+                <span class="text-slate-300">|</span>
+                <button type="button" onclick="selectAllPickerStudents('hw', false)" class="text-slate-500 hover:underline">Clear</button>
+              </div>
+            </div>
+            <div id="hw-students-checkboxes" class="max-h-36 overflow-y-auto space-y-1.5 p-2 bg-white rounded-lg border border-slate-200">
+              <!-- Dynamically populated student checkboxes -->
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-add-homework')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">Assign Homework</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Student Submit Homework (File Upload & Link Supported) -->
+  <div id="modal-submit-homework" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-slate-900">Submit Homework</h3>
+          <p class="text-xs text-slate-500" id="submit-hw-title">Assignment</p>
+        </div>
+        <button onclick="closeModal('modal-submit-homework')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="submission-form" onsubmit="handleSubmitHomework(event)" class="space-y-4 mt-4 text-xs">
+        <input type="hidden" id="submit-hw-id">
+        <input type="hidden" id="sub-uploaded-url">
+        <input type="hidden" id="sub-uploaded-filename">
+
+        <!-- File Upload Section (Any file format: .c, .java, .pdf, .ppt, etc.) -->
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Upload Solution File (Any file format: .c, .java, .pdf, .ppt, .pptx, etc.)</label>
+          <div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center bg-slate-50 hover:bg-slate-100/80 transition cursor-pointer" onclick="document.getElementById('sub-file-input').click()">
+            <input type="file" id="sub-file-input" onchange="handleSubmissionFileUpload(event)" class="hidden">
+            <div class="flex flex-col items-center">
+              <i data-lucide="upload-cloud" class="w-7 h-7 text-brand-600 mb-1"></i>
+              <span class="font-bold text-slate-800 text-xs" id="sub-file-label">Click to select file</span>
+              <span class="text-[10px] text-slate-400 mt-0.5">Maximum size: 25 MB &bull; All formats supported (.c, .java, .pdf, .ppt, .zip, etc.)</span>
+            </div>
+            <div id="sub-file-status" class="hidden mt-2 p-1.5 rounded-lg bg-emerald-50 text-[11px] font-semibold text-emerald-700 border border-emerald-200"></div>
+          </div>
+        </div>
+
+        <div class="relative flex py-1 items-center">
+          <div class="flex-grow border-t border-slate-200"></div>
+          <span class="flex-shrink mx-2 text-[10px] font-bold text-slate-400 uppercase">OR Paste Link</span>
+          <div class="flex-grow border-t border-slate-200"></div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Solution Link (Google Drive / GitHub / Paste URL)</label>
+          <input type="url" id="sub-url" placeholder="https://..." class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Solution Notes / Description (Optional)</label>
+          <textarea id="sub-text" rows="3" placeholder="Type your answers, derivations, or explanation of your solved work here..." class="w-full px-3 py-2 rounded-xl border border-slate-200"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-submit-homework')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" id="submit-hw-btn" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">Submit Assignment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: View Submissions & Review (Teacher) -->
+  <div id="modal-view-submissions" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-slate-900" id="submissions-modal-title">Submissions</h3>
+          <p class="text-xs text-slate-500" id="submissions-modal-meta">Homework review</p>
+        </div>
+        <button onclick="closeModal('modal-view-submissions')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto py-3 space-y-4" id="submissions-list-container">
+        <!-- List of student submissions with grade & feedback inputs -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Exam -->
+  <div id="modal-add-exam" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900">Schedule Exam / Test</h3>
+        <button onclick="closeModal('modal-add-exam')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="exam-form" onsubmit="handleSaveExam(event)" class="space-y-4 mt-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Exam Title *</label>
+          <input type="text" id="ex-title" required placeholder="e.g. Mid-Term Mathematics Mock Exam" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Subject *</label>
+            <input type="text" id="ex-subject" required placeholder="Mathematics" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Total Marks</label>
+            <input type="number" id="ex-marks" value="100" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Date *</label>
+            <input type="date" id="ex-date" required class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Start Time</label>
+            <input type="time" id="ex-start" value="10:00" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Duration (Mins)</label>
+            <input type="number" id="ex-duration" value="90" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Syllabus / Topics Covered</label>
+          <textarea id="ex-syllabus" rows="2" placeholder="Quadratic Equations, Polynomials, Linear Equations..." class="w-full px-3 py-2 rounded-xl border border-slate-200"></textarea>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Google Form Assessment Link (URL)</label>
+          <input type="url" id="ex-link" placeholder="https://docs.google.com/forms/..." class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-add-exam')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">Save Exam</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Create Fee Charge -->
+  <div id="modal-add-fee" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900">Create Fee Charge</h3>
+        <button onclick="closeModal('modal-add-fee')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="fee-form" onsubmit="handleSaveFee(event)" class="space-y-4 mt-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Select Student *</label>
+          <select id="fee-student-id" required class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+            <option value="">-- Choose a student --</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Fee Period / Description *</label>
+          <input type="text" id="fee-period" required placeholder="e.g. December 2026 Tuition Fee" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Fee Amount (₹ INR) *</label>
+            <input type="number" id="fee-amount" required step="0.01" placeholder="3500" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Due Date *</label>
+            <input type="date" id="fee-due-date" required class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Note (Optional)</label>
+          <textarea id="fee-desc" rows="2" placeholder="8 live sessions + practice worksheets..." class="w-full px-3 py-2 rounded-xl border border-slate-200"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-add-fee')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">Save Fee Charge</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Record Payment (Teacher Manual Confirmation) -->
+  <div id="modal-record-payment" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-slate-900">Record Received Payment</h3>
+          <p class="text-[11px] text-slate-400">Teacher manual confirmation into ledger</p>
+        </div>
+        <button onclick="closeModal('modal-record-payment')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="payment-form" onsubmit="handleRecordPayment(event)" class="space-y-4 mt-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Student *</label>
+          <select id="pay-student-id" required onchange="updatePayFeeDropdown()" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+            <option value="">-- Select Student --</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Allocate to Fee Charge (Optional)</label>
+          <select id="pay-fee-id" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+            <option value="">-- General Payment / Latest Unpaid --</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Amount Received (₹) *</label>
+            <input type="number" id="pay-amount" required step="0.01" placeholder="3500" class="w-full px-3 py-2 rounded-xl border border-slate-200 font-bold">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Payment Date *</label>
+            <input type="date" id="pay-date" required class="w-full px-3 py-2 rounded-xl border border-slate-200">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Payment Method *</label>
+            <select id="pay-method" required class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-semibold">
+              <option value="upi">UPI (GPay / PhonePe / Paytm)</option>
+              <option value="cash">Cash in Person</option>
+              <option value="bank_transfer">Direct Bank Transfer / NEFT</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Reference / UTR / Receipt No.</label>
+            <input type="text" id="pay-ref" placeholder="e.g. UPI/432190823411" class="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Teacher Verification Note</label>
+          <input type="text" id="pay-note" placeholder="Verified in bank passbook / statement" class="w-full px-3 py-2 rounded-xl border border-slate-200">
+        </div>
+
+        <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-[11px]">
+          <strong>Notice:</strong> Payments recorded here directly update student balance calculations and preserve audit trails.
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-record-payment')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">Confirm & Save Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Payment Reversal (Audit-safe correction) -->
+  <div id="modal-reverse-payment" class="hidden fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-rose-600">Reverse Payment Record</h3>
+          <p class="text-[11px] text-slate-400">Preserves audit history with a reversal adjustment</p>
+        </div>
+        <button onclick="closeModal('modal-reverse-payment')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="reversal-form" onsubmit="handleReversePayment(event)" class="space-y-4 mt-4 text-xs">
+        <input type="hidden" id="rev-payment-id">
+        <div class="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-900 text-xs">
+          <p>You are about to issue a reversal for payment <span class="font-mono font-bold" id="rev-payment-label">#123</span>.</p>
+          <p class="mt-1 text-[11px] text-rose-700">The original payment record will not be overwritten. A compensating adjustment will be recorded to recalculate the student's balance.</p>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Reason for Reversal / Adjustment *</label>
+          <textarea id="rev-reason" required rows="3" placeholder="e.g. Incorrect student selected / Cheque returned / Bank transaction bounced" class="w-full px-3 py-2 rounded-xl border border-slate-200"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-reverse-payment')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm">Confirm Reversal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
