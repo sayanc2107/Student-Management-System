@@ -205,7 +205,7 @@ You can deploy using either the **Render Blueprint (`render.yaml`)** or manual *
    - **Branch**: `main`
    - **Runtime**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - **Start Command**: `python3 -m uvicorn app.main:app --host 0.0.0.0 --port $PORT`
    - **Health Check Path**: `/health`
 4. Under **Environment Variables**, add the following:
 
